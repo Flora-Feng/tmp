@@ -1,0 +1,222 @@
+
+# coding: utf-8
+
+# In[13]:
+
+
+import pandas as pd
+import seaborn
+get_ipython().run_line_magic('matplotlib', 'inline')
+
+
+# In[2]:
+
+
+df_lis = pd.read_csv("Desktop/Patient sample data/LISResultInfo.csv",encoding = 'gbk')
+
+
+# In[3]:
+
+
+special_treatment = df_lis[(df_lis['RefMinBand'].isna()) & (df_lis['RefMaxBand'].isna())]
+
+
+# In[4]:
+
+
+special_treatment.shape[0]/df_lis.shape[0]
+# 特殊Item占比约20%,需要特殊处理 --> 珍惜少量的数据
+
+
+# In[5]:
+
+
+df_s = special_treatment.groupby(['ItemId'])['admiss_times'].count().reset_index()
+df_t = df_lis.groupby(['ItemId'])['admiss_times'].count().reset_index()
+df_all = pd.merge(df_s,df_t,on = 'ItemId')
+
+
+# In[26]:
+
+
+df_all.to_csv("Desktop/lib_count.csv",index = False)
+
+
+# In[25]:
+
+
+df_all.columns = ['ItemId', 'count_special_treatment', 'count_all']
+
+
+# In[22]:
+
+
+# 前10
+df_all1 = df_all[df_all['admiss_times_y']>100]
+#sns.distplot(x1, bins=20, kde=True,rug=True) 
+style = ["darkgrid", "whitegrid", "dark", "white", "ticks"]
+seaborn.set_style("darkgrid") 
+seaborn.displot(x="admiss_times_y",data=df_all,bins=100)
+
+
+# In[ ]:
+
+
+seaborn.displot(x="admiss_times_y",data=df_all,bins=100)
+
+
+# In[23]:
+
+
+df_all['admiss_times_y'].unique()
+
+
+# In[8]:
+
+
+def get_label(row):
+    try:
+        val = str(row['ItemValue'])
+        if 'null' in val or '月' in val: return -2
+        if '-' in val or '阴' in val or '未' in val or '清' in val: return 1
+        if '+' in val or '阳' in val: return 0
+        if '>' in val: val = val.strip('>').strip('=')
+        elif '<' in val: val = val.strip('<').strip('=')
+        if '－ <' in val: val = val.strip('－ <')
+        if '＋ >' in val: val = val.strip('＋ >')
+        val = val.strip('±')
+        val_max = row['RefMaxBand']
+        val_min = row['RefMinBand']
+        fg = 0
+        if 'null' not in str(val_max).lower():
+
+            fg+=1
+            try:
+                if float(val) > float(val_max): return 2
+            except:
+                pass
+        if 'null' not in str(val_min).lower():
+            fg+=1
+            try:
+                if float(val) < float(val_min): return 0
+            except:
+                pass
+
+        if fg > 0: return 1
+        else:
+            # special_treatment
+
+            val_range = row['BandRange'].strip('<').strip('≤').strip('＜=')
+            try:
+                return val < float(val_range)
+            except:
+                pass 
+            if '<' in val_range or '＜=' in val_range or '≤': return val < val_range.strip()
+            if row['ItemId'] == 'COLOR': 
+                re={'黄':1,'深黄色':0, '红':2, '淡红色':2, '红色':2}
+                return re[val]
+        return -1
+    except:
+        return -1
+  
+
+
+# In[9]:
+
+
+list_element = ['ItemId', 'ItemName', 'ItemValue','BandRange', 'RefMinBand', 'RefMaxBand']
+for x in list_element:
+    df_lis[x] = df_lis[x].fillna('Null')
+#df_lis['RefMinBand'] = df_lis['RefMinBand'].fillna('Null')
+#df_lis['RefMaxBand'] = df_lis['RefMaxBand'].fillna('Null')
+
+
+# In[10]:
+
+
+df_lis['fg'] = df_lis.apply(lambda x:get_label(x),axis = 1)
+
+
+# In[11]:
+
+
+df_cor = df_lis[~(df_lis['fg'] == -2)]
+
+
+# In[12]:
+
+
+df_cor['fg'].to_csv("Desktop/Patient sample data/LISResultInfo_corr.csv",index = False)
+
+
+# In[10]:
+
+
+df_lis
+
+
+# In[36]:
+
+
+special_treatment.s
+
+
+# In[37]:
+
+
+special_treatment.shape[0]/df_lis.shape[0]
+# 特殊Item占比20%,需要特殊处理
+
+
+# In[33]:
+
+
+
+
+
+# In[80]:
+
+
+
+
+
+# In[29]:
+
+
+import matplotlib
+
+special_treatment['ItemId'].hist().get_figure().show
+
+
+# In[22]:
+
+
+special_treatment['BandRange'].unique()
+
+
+# In[ ]:
+
+
+def data_cleaning(row):
+    val,max_val,min_val,range_val= row['ItemValue'],row['RefMaxBand'],row['RefMinBand'],row['BandRange']
+    if max_val.lower() != 'null':
+        if val < min_val: return 0
+        elif val > max_val: return 2
+        else: return 1
+    else:
+        if '≤' in range_val or '＜=' in range_val:
+            range_val = range_val.strip('(-)')
+
+
+# In[20]:
+
+
+special_treatment['BandRange'].unique()
+
+
+# In[10]:
+
+
+df_lis[df_lis['ItemId'] == 'COLOR']['ItemValue'].unique()
+# 黄色 = 1， 深黄色=0； 红色，淡红色，红 = 2
+
